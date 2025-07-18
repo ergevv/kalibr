@@ -102,7 +102,7 @@ class IccCalibrator(object):
         self.noTimeCalibration = noTimeCalibration
         if not noTimeCalibration:
             for cam in self.CameraChain.camList:
-                cam.findTimeshiftCameraImuPrior(self.ImuList[0], verbose)
+                cam.findTimeshiftCameraImuPrior(self.ImuList[0], verbose)  #根据角速度对齐时间
         
         #obtain orientation prior between main imu and camera chain (if no external input provided)
         #and initial estimate for the direction of gravity
@@ -113,7 +113,7 @@ class IccCalibrator(object):
         ## init optimization problem
         ############################################
         #initialize a pose spline using the camera poses in the camera chain
-        poseSpline = self.CameraChain.initializePoseSplineFromCameraChain(splineOrder, poseKnotsPerSecond, timeOffsetPadding)
+        poseSpline = self.CameraChain.initializePoseSplineFromCameraChain(splineOrder, poseKnotsPerSecond, timeOffsetPadding)  #b样条插值位姿
         
         # Initialize bias splines for all IMUs
         for imu in self.ImuList:

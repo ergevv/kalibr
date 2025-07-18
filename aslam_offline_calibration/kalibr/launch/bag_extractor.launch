@@ -1,0 +1,13 @@
+<launch>
+    <!-- 定义参数 -->
+    <arg name="bag_file" default="/home/erge/work/slam/kalibr_workspace/mydata/recorded_image.bag"/>
+    <arg name="output_folder" default="/home/erge/work/slam/kalibr_workspace/output3"/>
+    
+    <!-- 运行 kalibr_bagextractor 节点 -->
+    <node name="kalibr_bagextractor" pkg="kalibr" type="kalibr_bagextractor" output="screen">
+        <param name="image_topics" value="/cam0/image_raw /cam1/image_raw"/>
+        <param name="imu_topics" value="/imu0"/>
+        <param name="output_folder" value="$(arg output_folder)"/>
+        <param name="bag" value="$(arg bag_file)"/>
+    </node>
+</launch>

@@ -1,0 +1,17 @@
+<launch>
+  <!-- 定义参数 -->
+  <arg name="target" default="april_6x6.yaml"/>
+  <arg name="imu_params" default="imu_adis16448.yaml"/>
+  <arg name="imu_models" default="calibrated"/>
+  <arg name="cam_chain" default="cam_april-camchain.yaml"/>
+  <arg name="bag_file" default="imu_april.bag"/>
+  
+
+  <!-- 运行kalibr_calibrate_imu_camera命令 指定python版本：launch-prefix="/usr/bin/python3.8" -->
+  <node pkg="kalibr" type="kalibr_calibrate_imu_camera" name="kalibr_imu_camera_calibration" 
+        output="screen"  args="--target $(find kalibr)/data/$(arg target) 
+                              --imu $(find kalibr)/data/$(arg imu_params) 
+                              --imu-models $(arg imu_models) 
+                              --cam $(find kalibr)/data/$(arg cam_chain) 
+                              --bag $(find kalibr)/data/$(arg bag_file)" />
+</launch>

@@ -67,7 +67,9 @@ def parseArgs():
     
     #data source
     groupData = parser.add_argument_group('Dataset source')
-    groupData.add_argument('--bag', dest='bagfile', nargs=1, help='Ros bag file containing image and imu data (rostopics specified in the yamls)', action=Once, required=True)
+    # groupData.add_argument('--bag', dest='bagfile', nargs=1, help='Ros bag file containing image and imu data (rostopics specified in the yamls)', action=Once, required=True)
+    groupData.add_argument('--bag_image', dest='bagfile', nargs=1, help='Ros bag file containing image and imu data (rostopics specified in the yamls)', action=Once, required=True)
+    groupData.add_argument('--bag_imu', dest='bagfile2', nargs=1, help='Ros bag file containing image and imu data (rostopics specified in the yamls)', action=Once, required=True)
     groupData.add_argument('--bag-from-to', metavar='bag_from_to', type=float, nargs=2, help='Use the bag data starting from up to this time [s]')
     groupData.add_argument('--bag-freq', metavar='bag_freq', type=float, help='Frequency to extract features at [hz]')
     groupData.add_argument('--perform-synchronization',  action='store_true', dest='perform_synchronization', \
@@ -105,18 +107,22 @@ def parseArgs():
     outputSettings.add_argument('--export-poses', action='store_true', dest='exportPoses', help='Export the optimized poses into a CSV (time_ns, position, quaterion)')
 
     #print help if no argument is specified
-    if len(sys.argv)==1:
+    # 过滤掉 ROS 添加的特殊参数（以 '__' 开头）
+    args = [arg for arg in sys.argv if not arg.startswith('__')]
+
+    if len(args) == 1:
         parser.print_help()
         sys.exit(2)
-    
-    #Parser the argument list
+
+    # 打印过滤后的参数（调试用）
+    print("Filtered args:", args)
+
+    # 解析参数
     try:
-        parsed = parser.parse_args()
+        parsed = parser.parse_args(args[1:])
     except:
-        sys.exit(2)
-                 
-    if parsed.verbose:
-        parsed.showextraction = True             
+        print("Argument parsing failed.")
+        sys.exit(2)          
     
     #there is a with the gtk plot widget, so we cant plot if we have opencv windows open...
     #--> disable the plots in these special situations
@@ -127,7 +133,7 @@ def parseArgs():
 
 def main():
     # Parse the arguments
-    parsed = parseArgs();
+    parsed = parseArgs()
     
     #logging modess
     if parsed.verbose:
@@ -145,8 +151,22 @@ def main():
         sm.logError("Number of IMU yamls and models has to match.")
         sys.exit(2)
     
+
+    
+    #load calibration target configuration 
+    targetConfig = kc.CalibrationTargetParameters(parsed.target_yaml)
+       
+    print("Initializing calibration target:")
+    targetConfig.printDetails()
+    
+    print("Initializing camera chain:")
+    chain = kc.CameraChainParameters(parsed.chain_yaml)      
+    chain.printDetails()   
+    camChain = sens.IccCameraChain(chain, targetConfig, parsed)  #获取图像角点
+
+
     imus = list()
-    for i, (imu_yaml, imu_model) in enumerate(zip(parsed.imu_yamls, parsed.imu_models)):
+    for i, (imu_yaml, imu_model) in enumerate(zip(parsed.imu_yamls, parsed.imu_models)): #获取imu数据
         imuConfig = kc.ImuParameters(imu_yaml)
         imuConfig.printDetails()
         if imu_model == 'calibrated':
@@ -161,17 +181,6 @@ def main():
         else:
             sm.logError("Model {0} is currently unsupported.".format(imu_model))
             sys.exit(2)
-    
-    #load calibration target configuration 
-    targetConfig = kc.CalibrationTargetParameters(parsed.target_yaml)
-       
-    print("Initializing calibration target:")
-    targetConfig.printDetails()
-    
-    print("Initializing camera chain:")
-    chain = kc.CameraChainParameters(parsed.chain_yaml)      
-    chain.printDetails()   
-    camChain = sens.IccCameraChain(chain, targetConfig, parsed)
 
     #create a calibrator instance
     iCal = IccCalibrator()
@@ -215,6 +224,48 @@ def main():
     util.printResults(iCal, withCov=parsed.recover_cov)
     print("")
 
+    # print(dir(iCal.ImuList[0].gyroBias))
+    # print(dir(iCal.ImuList[0].gyroBiasDv))
+    # bias_spline = iCal.ImuList[0].gyroBias
+    # coeffs = bias_spline.coefficients()
+    # print("Gyro Bias Coefficients:\n", coeffs)
+    # import matplotlib.pyplot as plt
+
+    # times = np.linspace(bias_spline.t_min(), bias_spline.t_max(), 100)
+    # bias_values = np.array([bias_spline.eval(t) for t in times])
+
+    # plt.plot(times, bias_values[:, 0], label='x')
+    # plt.plot(times, bias_values[:, 1], label='y')
+    # plt.plot(times, bias_values[:, 2], label='z')
+    # plt.legend()
+    # plt.title('Gyro Bias Over Time')
+    # plt.xlabel('Time [s]')
+    # plt.ylabel('Bias [rad/s]')
+    # plt.show()
+
+    # bias_dv = iCal.ImuList[0].gyroBiasDv
+    # bias_spline = bias_dv.spline()  # 获取底层的 B 样条对象
+    # coeffs = bias_spline.coefficients()  # 获取控制点系数矩阵
+
+    # print("Gyro Bias Coefficients:\n", coeffs)
+
+    # times = np.linspace(bias_spline.t_min(), bias_spline.t_max(), 100)
+    # bias_values = np.array([bias_spline.eval(t) for t in times])
+    # bias_array = np.array(bias_values)
+
+    # import matplotlib.pyplot as plt
+    # plt.plot(times, bias_array[:, 0], label='x1')
+    # plt.plot(times, bias_array[:, 1], label='y2')
+    # plt.plot(times, bias_array[:, 2], label='z3')
+    # plt.title('Gyro Bias Over Time (from gyroBiasDv)')
+    # plt.xlabel('Time [s]')
+    # plt.ylabel('Bias [rad/s]')
+    # plt.legend()
+    # plt.show()
+
+
+
+
     bagtag = os.path.splitext(parsed.bagfile[0])[0]
     yamlFilename = bagtag + "-camchain-imucam.yaml"
     iCal.saveCamChainParametersYaml(yamlFilename)
@@ -244,6 +295,10 @@ def main():
         print("")
 
 if __name__ == "__main__":
+
+    # 获取当前进程ID
+    current_pid = os.getpid()
+    print(f"当前进程ID: {current_pid}")
     main()
 #     try:
 #         main()

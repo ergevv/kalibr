@@ -5,113 +5,132 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <aslam/cameras/GridCalibrationTargetCirclegrid.hpp>
 
-namespace aslam {
-namespace cameras {
-
-/// \brief Construct a calibration target
-GridCalibrationTargetCirclegrid::GridCalibrationTargetCirclegrid(size_t rows, size_t cols, double spacingMeters,
-                                                                 const CirclegridOptions &options)
-    : GridCalibrationTargetBase(rows, cols),
-      _spacing(spacingMeters),
-      _options(options) {
-  SM_ASSERT_GT(Exception, spacingMeters, 0.0, "spacingMetric has to be positive");
-
-  // allocate memory for the grid points
-  _points.resize(size(), 3);
-
-  //initialize a normal grid
-  createGridPoints();
-
-  //start the output window if requested
-  initialize();
-}
-
-/// \brief initialize the object
-void GridCalibrationTargetCirclegrid::initialize()
+namespace aslam
 {
-  if (_options.showExtractionVideo) {
-    cv::namedWindow("Circlegrid corners", cv::WINDOW_AUTOSIZE);
-    cv::resizeWindow("Circlegrid corners", 640, 480);
-    cv::startWindowThread();
-  }
-}
-
-/// \brief initialize a checkerboard grid (cols*rows = (cols)*(rows) internal grid points)
-void GridCalibrationTargetCirclegrid::createGridPoints() {
-  for (unsigned int r = 0; r < _rows; r++)
-    for (unsigned int c = 0; c < _cols; c++)
-      _points.row(gridCoordinatesToPoint(r, c)) = Eigen::Matrix<double, 1, 3>(
-          _spacing * r, _spacing * c, 0.0);
-
-
-  if(_options.useAsymmetricCirclegrid)
+  namespace cameras
   {
-    //asymmetric grid
-    for (unsigned int r = 0; r < _rows; r++)
-      for (unsigned int c = 0; c < _cols; c++)
-        _points.row(gridCoordinatesToPoint(r, c)) = Eigen::Matrix<double, 1, 3>(double((2*c + r % 2)*_spacing), double(r*_spacing), 0.0);
-  } else {
-    //symmetric grid
-    for (unsigned int r = 0; r < _rows; r++)
-      for (unsigned int c = 0; c < _cols; c++)
-        _points.row(gridCoordinatesToPoint(r, c)) = Eigen::Matrix<double, 1, 3>(_spacing * r, _spacing * c, 0.0);
-  }
-}
 
-/// \brief extract the calibration target points from an image and write to an observation
-bool GridCalibrationTargetCirclegrid::computeObservation(const cv::Mat & image,
-           Eigen::MatrixXd & outImagePoints, std::vector<bool> &outCornerObserved) const {
+    /// \brief Construct a calibration target
+    GridCalibrationTargetCirclegrid::GridCalibrationTargetCirclegrid(size_t rows, size_t cols, double spacingMeters,
+                                                                     const CirclegridOptions &options)
+        : GridCalibrationTargetBase(rows, cols),
+          _spacing(spacingMeters),
+          _options(options)
+    {
+      SM_ASSERT_GT(Exception, spacingMeters, 0.0, "spacingMetric has to be positive");
 
+      // allocate memory for the grid points
+      _points.resize(size(), 3);
 
-  // extract the circle grid corners
-  cv::Size patternSize(cols(), rows());
-  cv::Mat centers(size(), 2, CV_64FC1);
+      // initialize a normal grid
+      createGridPoints();
 
-  bool success = false;
-  if(_options.useAsymmetricCirclegrid)
-    success = cv::findCirclesGrid( image, patternSize, centers, cv::CALIB_CB_ASYMMETRIC_GRID );
-  else
-    success = cv::findCirclesGrid( image, patternSize, centers );
+      // start the output window if requested
+      initialize();
+    }
 
+    /// \brief initialize the object
+    void GridCalibrationTargetCirclegrid::initialize()
+    {
+      if (_options.showExtractionVideo)
+      {
+        cv::namedWindow("Circlegrid corners", cv::WINDOW_AUTOSIZE);
+        cv::resizeWindow("Circlegrid corners", 640, 480);
+        cv::startWindowThread();
+      }
+    }
 
-  //draw corners
-  if (_options.showExtractionVideo) {
-    //image with refined (blue) and raw corners (red)
-    cv::Mat imageCopy1 = image.clone();
-    cv::cvtColor(imageCopy1, imageCopy1, cv::COLOR_GRAY2RGB);
-    cv::drawChessboardCorners(imageCopy1, cv::Size(rows(), cols()), centers, true);
+    /// \brief initialize a checkerboard grid (cols*rows = (cols)*(rows) internal grid points)
+    void GridCalibrationTargetCirclegrid::createGridPoints()
+    {
+      for (unsigned int r = 0; r < _rows; r++)
+        for (unsigned int c = 0; c < _cols; c++)
+          _points.row(gridCoordinatesToPoint(r, c)) = Eigen::Matrix<double, 1, 3>(
+              _spacing * r, _spacing * c, 0.0);
 
-    // write error msg
-    if (!success)
-      cv::putText(imageCopy1, "Detection failed! (frame not used)",
-                  cv::Point(50, 50), cv::FONT_HERSHEY_SIMPLEX, 0.8,
-                  CV_RGB(255,0,0), 3, 8, false);
+      if (_options.useAsymmetricCirclegrid)
+      {
+        // asymmetric grid
+        // for (unsigned int r = 0; r < _rows; r++)
+        //   for (unsigned int c = 0; c < _cols; c++)
+        //     _points.row(gridCoordinatesToPoint(r, c)) = Eigen::Matrix<double, 1, 3>(double((2 * c + r % 2) * _spacing), double(r * _spacing), 0.0);
 
-    cv::imshow("Circlegrid corners", imageCopy1);  // OpenCV call
-    cv::waitKey(1);
-  }
+        for (unsigned int c = 0; c < _cols; c++)
+        {
+          double x = c * _spacing;
+          double start_y = c % 2 == 1 ? _spacing : 0.0;
+          for (unsigned int r = 0; r < _rows; r++)
+          {
+            double y = start_y + r * _spacing * 2;
+            _points.row(c * _rows + r) = Eigen::Matrix<double, 1, 3>(x, y, 0.0);
+          }
+        }
+      }
+      else
+      {
+        // symmetric grid
+        for (unsigned int r = 0; r < _rows; r++)
+          for (unsigned int c = 0; c < _cols; c++)
+            _points.row(gridCoordinatesToPoint(r, c)) = Eigen::Matrix<double, 1, 3>(_spacing * r, _spacing * c, 0.0);
+      }
+      // 打印points
+      std::cout << "points:" << _points << std::endl;
+    }
 
-  //exit here if there is an error
-  if (!success)
-    return success;
+    /// \brief extract the calibration target points from an image and write to an observation
+    bool GridCalibrationTargetCirclegrid::computeObservation(const cv::Mat &image,
+                                                             Eigen::MatrixXd &outImagePoints, std::vector<bool> &outCornerObserved) const
+    {
 
-  //set all points as observed (circlegrid is only usable in that case)
-  std::vector<bool> allGood(size(), true);
-  outCornerObserved = allGood;
+      // extract the circle grid corners
+      cv::Size patternSize(cols(), rows());
+      cv::Mat centers(size(), 2, CV_64FC1);
 
-  //convert to eigen for output
-  outImagePoints.resize(size(), 2);
-  for (unsigned int i = 0; i < size(); i++)
-    outImagePoints.row(i) = Eigen::Matrix<double, 1, 2>(
-        centers.row(i).at<float>(0), centers.row(i).at<float>(1));
+      bool success = false;
+      if (_options.useAsymmetricCirclegrid)
+        success = cv::findCirclesGrid(image, patternSize, centers, cv::CALIB_CB_ASYMMETRIC_GRID);
+      else
+        success = cv::findCirclesGrid(image, patternSize, centers);
 
-  return success;
-}
+      // draw corners
+      if (_options.showExtractionVideo)
+      {
+        // image with refined (blue) and raw corners (red)
+        cv::Mat imageCopy1 = image.clone();
+        cv::cvtColor(imageCopy1, imageCopy1, cv::COLOR_GRAY2RGB);
+        cv::drawChessboardCorners(imageCopy1, cv::Size(rows(), cols()), centers, true);
 
-}  // namespace cameras
-}  // namespace aslam
+        // write error msg
+        if (!success)
+          cv::putText(imageCopy1, "Detection failed! (frame not used)",
+                      cv::Point(50, 50), cv::FONT_HERSHEY_SIMPLEX, 0.8,
+                      CV_RGB(255, 0, 0), 3, 8, false);
 
-//export explicit instantions for all included archives
+        cv::imshow("Circlegrid corners", imageCopy1); // OpenCV call
+        cv::waitKey(1);
+      }
+
+      // exit here if there is an error
+      if (!success)
+        return success;
+
+      // set all points as observed (circlegrid is only usable in that case)
+      std::vector<bool> allGood(size(), true);
+      outCornerObserved = allGood;
+
+      // convert to eigen for output
+      outImagePoints.resize(size(), 2);
+      for (unsigned int i = 0; i < size(); i++)
+        outImagePoints.row(i) = Eigen::Matrix<double, 1, 2>(
+            centers.row(i).at<float>(0), centers.row(i).at<float>(1));
+
+      return success;
+    }
+
+  } // namespace cameras
+} // namespace aslam
+
+// export explicit instantions for all included archives
 #include <sm/boost/serialization.hpp>
 #include <boost/serialization/export.hpp>
 BOOST_CLASS_EXPORT_IMPLEMENT(aslam::cameras::GridCalibrationTargetCirclegrid);

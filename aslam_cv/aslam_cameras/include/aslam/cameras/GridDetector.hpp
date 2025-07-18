@@ -112,6 +112,10 @@ class GridDetector {
 
   bool findTarget(const cv::Mat &image, GridCalibrationTargetObservation &outObservation) const;
 
+
+  bool findTarget2(const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> & corners, const aslam::Time & stamp,
+    GridCalibrationTargetObservation & outObservation) const;
+
   /// \brief Find the target but don't estimate the transformation.
   bool findTargetNoTransformation(const cv::Mat &image, const aslam::Time &stamp,
       GridCalibrationTargetObservation & outObservation) const;

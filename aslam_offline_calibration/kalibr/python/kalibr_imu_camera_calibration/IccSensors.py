@@ -62,6 +62,7 @@ class IccCamera():
         #extract corners
         self.setupCalibrationTarget( targetConfig, showExtraction=showCorners, showReproj=showReproj, imageStepping=showOneStep )
         multithreading = not (showCorners or showReproj or showOneStep)
+        multithreading = False
         self.targetObservations = kc.extractCornersFromDataset(self.dataset, self.detector, multithreading=multithreading)
         
         #an estimate of the gravity in the world coordinate frame  
@@ -123,7 +124,9 @@ class IccCamera():
         problem = aopt.OptimizationProblem()
 
         # Add the rotation as design variable
-        q_i_c_Dv = aopt.RotationQuaternionDv(  self.T_extrinsic.q() )
+        q_i_c_Dv = aopt.RotationQuaternionDv(  self.T_extrinsic.q() )  #可以提供手测的外参
+        # print("Translation (t):", self.T_extrinsic.t())
+        # print("Rotation (q):", self.T_extrinsic.q())
         q_i_c_Dv.setActive( True )
         problem.addDesignVariable(q_i_c_Dv)
 
@@ -133,7 +136,7 @@ class IccCamera():
         problem.addDesignVariable(gyroBiasDv)
         
         #initialize a pose spline using the camera poses
-        poseSpline = self.initPoseSplineFromCamera( timeOffsetPadding=0.0 )
+        poseSpline = self.initPoseSplineFromCamera( timeOffsetPadding=0.0 )  #将相机位置转到世界坐标后？ 再进行b样条拟合
         
         for im in imu.imuData:
             tk = im.stamp.toSec()
@@ -143,12 +146,12 @@ class IccCamera():
                 bias = gyroBiasDv.toExpression()   
                 
                 #get the vision predicted omega and measured omega (IMU)
-                omega_predicted = R_i_c * aopt.EuclideanExpression( np.matrix( poseSpline.angularVelocityBodyFrame( tk ) ).transpose() )
+                omega_predicted = R_i_c * aopt.EuclideanExpression( np.matrix( poseSpline.angularVelocityBodyFrame( tk ) ).transpose() )  #imu坐标下的角速度
                 omega_measured = im.omega
                 
                 #error term
                 gerr = ket.GyroscopeError(omega_measured, im.omegaInvR, omega_predicted, bias)
-                problem.addErrorTerm(gerr)
+                problem.addErrorTerm(gerr)  #添加角速度误差
         
         if problem.numErrorTerms() == 0:
             sm.logFatal("Failed to obtain orientation prior. "\
@@ -177,7 +180,7 @@ class IccCamera():
             sys.exit(-1)
 
         #overwrite the external rotation prior (keep the external translation prior)
-        R_i_c = q_i_c_Dv.toRotationMatrix().transpose()
+        R_i_c = q_i_c_Dv.toRotationMatrix().transpose()  # 相机坐标转imu
         self.T_extrinsic = sm.Transformation( sm.rt2Transform( R_i_c, self.T_extrinsic.t() ) )
 
         #estimate gravity in the world coordinate frame as the mean specific force
@@ -193,7 +196,7 @@ class IccCamera():
         #set the gyro bias prior (if we have more than 1 cameras use recursive average)
         b_gyro = bias.toEuclidean() 
         imu.GyroBiasPriorCount += 1
-        imu.GyroBiasPrior = (imu.GyroBiasPriorCount-1.0)/imu.GyroBiasPriorCount * imu.GyroBiasPrior + 1.0/imu.GyroBiasPriorCount*b_gyro
+        imu.GyroBiasPrior = (imu.GyroBiasPriorCount-1.0)/imu.GyroBiasPriorCount * imu.GyroBiasPrior + 1.0/imu.GyroBiasPriorCount*b_gyro #多个相机的零偏平均值
 
         #print result
         print("  Orientation prior camera-imu found as: (T_i_c)")
@@ -231,7 +234,7 @@ class IccCamera():
                 
                 #get imu measurements and spline from camera
                 omega_measured = im.omega
-                omega_predicted = aopt.EuclideanExpression( np.matrix( poseSpline.angularVelocityBodyFrame( tk ) ).transpose() )
+                omega_predicted = aopt.EuclideanExpression( np.matrix( poseSpline.angularVelocityBodyFrame( tk ) ).transpose() ) #已经拟合角速度方程了，可以直接求导加一个雅可比矩阵即可求得对应的角速度
 
                 #calc norm
                 t = np.hstack( (t, tk) )
@@ -280,7 +283,7 @@ class IccCamera():
                 
         # Get the checkerboard times.
         times = np.array([obs.time().toSec()+self.timeshiftCamToImuPrior for obs in self.targetObservations ])                 
-        curve = np.matrix([ pose.transformationToCurveValue( np.dot(obs.T_t_c().T(), T_c_b) ) for obs in self.targetObservations]).T
+        curve = np.matrix([ pose.transformationToCurveValue( np.dot(obs.T_t_c().T(), T_c_b) ) for obs in self.targetObservations]).T #使用平移和欧拉角代替矩阵
         
         if np.isnan(curve).any():
             raise RuntimeError("Nans in curve values")
@@ -305,7 +308,7 @@ class IccCamera():
                 if dist < best_dist:
                     best_r = aa
                     best_dist = dist
-            curve[3:6,i] = best_r;
+            curve[3:6,i] = best_r
             
         seconds = times[-1] - times[0]
         knots = int(round(seconds * poseKnotsPerSecond))
@@ -329,7 +332,7 @@ class IccCamera():
         
     def addCameraErrorTerms(self, problem, poseSplineDv, T_cN_b, blakeZissermanDf=0.0, timeOffsetPadding=0.0):
         print("")
-        print("Adding camera error terms ({0})".format(self.dataset.topic))
+        # print("Adding camera error terms ({0})".format(self.dataset.topic))
         
         #progress bar
         iProgress = sm.Progress2( len(self.targetObservations) )
@@ -419,9 +422,10 @@ class IccCameraChain():
         self.camList = []
         for camNr in range(0, chainConfig.numCameras()):
             camConfig = chainConfig.getCameraParameters(camNr)
-            dataset = initCameraBagDataset(parsed.bagfile[0], camConfig.getRosTopic(), \
-                                           parsed.bag_from_to, parsed.bag_freq, parsed.perform_synchronization)
-            
+            # dataset = initCameraBagDataset(parsed.bagfile[0], camConfig.getRosTopic(), \
+            #                                parsed.bag_from_to, parsed.bag_freq, parsed.perform_synchronization)
+            corners_path = parsed.bagfile[0]
+            dataset = corners_path
             #create the camera
             self.camList.append( IccCamera( camConfig, 
                                             targetConfig, 
@@ -430,7 +434,7 @@ class IccCameraChain():
                                             reprojectionSigma=parsed.reprojection_sigma, 
                                             showCorners=parsed.showextraction,
                                             showReproj=parsed.showextraction, 
-                                            showOneStep=parsed.extractionstepping) )  
+                                            showOneStep=parsed.extractionstepping) )   #获取角点
                 
         self.chainConfig = chainConfig
         
@@ -590,7 +594,7 @@ class IccImu(object):
         self.imuConfig = self.ImuParameters(imuConfig, imuNr)
 
         #load dataset
-        self.dataset = initImuBagDataset(parsed.bagfile[0], imuConfig.getRosTopic(), \
+        self.dataset = initImuBagDataset(parsed.bagfile2[0], imuConfig.getRosTopic(), \
                                          parsed.bag_from_to, parsed.perform_synchronization)
         
         #statistics
@@ -749,9 +753,9 @@ class IccImu(object):
         self.gyroErrors = gyroErrors
 
     def initBiasSplines(self, poseSpline, splineOrder, biasKnotsPerSecond):
-        start = poseSpline.t_min();
-        end = poseSpline.t_max();
-        seconds = end - start;
+        start = poseSpline.t_min()
+        end = poseSpline.t_max()
+        seconds = end - start
         knots = int(round(seconds * biasKnotsPerSecond))
         
         print("")

@@ -10,6 +10,8 @@ except ImportError:
 import time
 import copy
 import cv2
+import scipy.io
+import aslam_cv as acv
 
 def multicoreExtractionWrapper(detector, taskq, resultq, clearImages, noTransformation):    
     while 1:
@@ -34,7 +36,17 @@ def multicoreExtractionWrapper(detector, taskq, resultq, clearImages, noTransfor
 def extractCornersFromDataset(dataset, detector, multithreading=False, numProcesses=None, clearImages=True, noTransformation=False):
     print("Extracting calibration target corners")    
     targetObservations = []
-    numImages = dataset.numImages()
+
+    
+
+
+    # 加载 .mat 文件
+    corners_times = scipy.io.loadmat(dataset)
+    times = corners_times['times']
+    corners = corners_times['imagePoints']
+    image_sizes = corners_times['imSize']
+    # numImages = dataset.numImages()
+    numImages = corners.shape[2]
     
     # prepare progess bar
     iProgress = sm.Progress2(numImages)
@@ -86,14 +98,26 @@ def extractCornersFromDataset(dataset, detector, multithreading=False, numProces
             targetObservations=[]
     
     #single threaded implementation
+    # 重新赋值observation
     else:
-        for timestamp, image in dataset.readDataset():
-            if noTransformation:
-                success, observation = detector.findTargetNoTransformation(timestamp, np.array(image))
-            else:
-                success, observation = detector.findTarget(timestamp, np.array(image))
-            if clearImages:
-                observation.clearImage()
+
+
+        for i in range(0, numImages):
+            raw_time = times[0, i]  # 假设 raw_time 是一个 19 位整数
+    
+            seconds = int(raw_time) // 10**9
+            nanoseconds = int(raw_time) % 10**9
+            timestamp = acv.Time(seconds,nanoseconds)
+
+            corner  = corners[:,:,i]
+            success, observation = detector.findTarget(timestamp, np.array(corner))  #这里是float64
+        # for timestamp, image in dataset.readDataset():
+        #     if noTransformation:
+        #         success, observation = detector.findTargetNoTransformation(timestamp, np.array(image))
+        #     else:
+        #         success, observation = detector.findTarget(timestamp, np.array(image))
+        #     if clearImages:
+        #         observation.clearImage()
             if success == 1:
                 targetObservations.append(observation)
             iProgress.sample()

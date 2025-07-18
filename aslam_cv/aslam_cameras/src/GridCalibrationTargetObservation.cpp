@@ -188,6 +188,12 @@ void GridCalibrationTargetObservation::setImage(cv::Mat image) {
   _imRows = image.rows;
   _imCols = image.cols;
 }
+
+void GridCalibrationTargetObservation::setImageSize(int rows, int cols) {
+  // _image = image;
+  _imRows = rows;
+  _imCols = cols;
+}
 void GridCalibrationTargetObservation::clearImage() {
   _image = cv::Mat();
 }
