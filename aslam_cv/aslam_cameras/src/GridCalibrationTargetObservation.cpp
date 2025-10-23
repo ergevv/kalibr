@@ -93,8 +93,7 @@ unsigned int GridCalibrationTargetObservation::getCornersImageFrame(
 
 /// \brief get the the reprojected corners of all observed corners
 ///        returns the number of observed corners
-unsigned int GridCalibrationTargetObservation::getCornerReprojection(const boost::shared_ptr<CameraGeometryBase> cameraGeometry,
-                                                                     std::vector<cv::Point2f> &outPointReproj) const
+unsigned int GridCalibrationTargetObservation::getCornerReprojection(const boost::shared_ptr<CameraGeometryBase> cameraGeometry,std::vector<cv::Point2f> &outPointReproj) const
 {
   //check if transformation has been calculated
   SM_ASSERT_TRUE(Exception, _T_t_c_isSet, "Extrinsics not set. Reprojection can only be calculated if the extrinsics have been calculated. Use findTarget()...");

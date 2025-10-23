@@ -103,10 +103,16 @@ def extractCornersFromDataset(dataset, detector, multithreading=False, numProces
 
 
         for i in range(0, numImages):
-            raw_time = times[0, i]  # 假设 raw_time 是一个 19 位整数
+            raw_time = times[0, i]  
     
-            seconds = int(raw_time) // 10**9
-            nanoseconds = int(raw_time) % 10**9
+            seconds = int(raw_time) // 10**6
+            nanoseconds = int(raw_time) % 10**6 *1000 #注意对齐时间
+
+            # seconds = int(raw_time) // 10**3
+            # nanoseconds = int(raw_time) % 10**3
+
+            # seconds = int(raw_time) // 10**9
+            # nanoseconds = int(raw_time) % 10**9
             timestamp = acv.Time(seconds,nanoseconds)
 
             corner  = corners[:,:,i]

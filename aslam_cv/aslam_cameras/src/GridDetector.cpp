@@ -270,7 +270,7 @@ namespace aslam
 
       // Set the image, target, and timestamp regardless of success.
       outObservation.setTarget(_target);
-      outObservation.setImageSize(1944, 2594); // 注：换像素这里需要更改
+      outObservation.setImageSize(1944, 2592); // 注：换像素这里需要更改
       outObservation.setTime(stamp);
 
       // Set the observed corners in the observation
@@ -329,7 +329,7 @@ namespace aslam
           std += temp * temp;
         }
         std /= (double)numCorners;
-        std = sqrt(std);
+        std = sqrt(std); // 重投影误差
       };
 
       // remove corners with a reprojection error above a threshold
@@ -342,6 +342,7 @@ namespace aslam
         std::vector<cv::Point2f> corners_reproj, corners_detected;
         compute_stats(mean, std, reprojection_errors_norm, corners_reproj, corners_detected);
 
+        std::cout << "重投影参数： " << "mean: " << mean << " std: " << std << std::endl;
         // disable outlier corners
         std::vector<unsigned int> cornerIdx;
         outObservation.getCornersIdx(cornerIdx);
@@ -361,7 +362,6 @@ namespace aslam
         if (removeCount > 0)
           SM_DEBUG_STREAM("removed " << removeCount << " of " << reprojection_errors_norm.rows() << " calibration target corner outliers\n";);
       }
-
 
       return success;
     }

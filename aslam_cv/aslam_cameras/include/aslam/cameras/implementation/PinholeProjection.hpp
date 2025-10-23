@@ -890,7 +890,7 @@ bool PinholeProjection<DISTORTION_T>::estimateTransformation(
     }
   }
 
-  out_T_t_c.set(T_camera_model.inverse());
+  out_T_t_c.set(T_camera_model.inverse()); //相机在标定板坐标系下的位姿
   return true;
 }
 

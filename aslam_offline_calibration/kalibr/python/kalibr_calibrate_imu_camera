@@ -94,7 +94,7 @@ def parseArgs():
     #optimization options
     groupOpt = parser.add_argument_group('Optimization options')
     groupOpt.add_argument('--no-time-calibration', action='store_true', dest='no_time', help='Disable the temporal calibration', required=False)      
-    groupOpt.add_argument('--max-iter', type=int, default=30, dest='max_iter', help='Max. iterations (default: %(default)s)', required=False)
+    groupOpt.add_argument('--max-iter', type=int, default=15, dest='max_iter', help='Max. iterations (default: %(default)s)', required=False)
     groupOpt.add_argument('--recover-covariance', action='store_true', dest='recover_cov', help='Recover the covariance of the design variables.', required=False)
     groupOpt.add_argument('--timeoffset-padding', type=float, default=30.e-3, dest='timeoffset_padding', help='Maximum range in which the timeoffset may change during estimation [s] (default: %(default)s)', required=False)
 
@@ -162,7 +162,7 @@ def main():
     print("Initializing camera chain:")
     chain = kc.CameraChainParameters(parsed.chain_yaml)      
     chain.printDetails()   
-    camChain = sens.IccCameraChain(chain, targetConfig, parsed)  #获取图像角点
+    camChain = sens.IccCameraChain(chain, targetConfig, parsed)  #获取图像角点,时间、相机相对于标定板的位姿
 
 
     imus = list()
@@ -188,8 +188,8 @@ def main():
     #register sensors with calibrator
     iCal.registerCamChain(camChain)
     for imu in imus:
-        iCal.registerImu(imu)
-        if imu is not imus[0]:
+        iCal.registerImu(imu) #添加imu到ical
+        if imu is not imus[0]: 
             imu.findOrientationPrior(imus[0])
 
     print("")

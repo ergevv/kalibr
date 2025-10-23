@@ -1,20 +1,24 @@
+
+
+
 <launch>
   <!-- 定义参数 -->
+  <arg name="date" default="20251014"/>
   <arg name="target" default="asymmetricGrid.yaml"/>
   <arg name="imu_params" default="imu.yaml"/>
   <arg name="imu_models" default="calibrated"/>
-  <arg name="cam_chain" default="cam.yaml"/>
-  <arg name="bag_image" default="kalibr.mat"/>
-  <arg name="bag_imu" default="recorded_imu.bag"/>
+  <arg name="cam_chain" default="$(arg date)/cam.yaml"/>
+  <arg name="bag_image" default="$(arg date)/kalibr.mat"/>
+  <arg name="bag_imu" default="$(arg date)/recorded_imu.bag"/>
   
 
   <!-- 运行kalibr_calibrate_imu_camera命令 指定python版本：launch-prefix="/usr/bin/python3.8" -->
   <node pkg="kalibr" type="kalibr_calibrate_imu_camera" name="kalibr_imu_camera_calibration" 
-        output="screen"  args="--target $(find kalibr)/../../../../mydata/$(arg target) 
-                              --imu $(find kalibr)/../../../../mydata/$(arg imu_params) 
+        output="screen"  args="--target $(find kalibr)/../../../../asymm_4_9/$(arg target) 
+                              --imu $(find kalibr)/../../../../asymm_4_9/$(arg imu_params) 
                               --imu-models $(arg imu_models) 
-                              --cam $(find kalibr)/../../../../mydata/$(arg cam_chain) 
-                              --bag_image $(find kalibr)/../../../../mydata/$(arg bag_image)
-                              --bag_imu $(find kalibr)/../../../../mydata/$(arg bag_imu) 
+                              --cam $(find kalibr)/../../../../asymm_4_9/$(arg cam_chain) 
+                              --bag_image $(find kalibr)/../../../../asymm_4_9/$(arg bag_image)
+                              --bag_imu $(find kalibr)/../../../../asymm_4_9/$(arg bag_imu) 
                               --timeoffset-padding 0.2"/>
 </launch>

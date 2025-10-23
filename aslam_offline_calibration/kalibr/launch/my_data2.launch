@@ -1,0 +1,19 @@
+<launch>
+  <arg name="date" default="mydata"/>
+  <arg name="target" default="$(arg date)/asymmetricGrid.yaml"/>
+  <arg name="imu_params" default="$(arg date)/imu.yaml"/>
+  <arg name="imu_models" default="calibrated"/>
+  <arg name="cam_chain" default="$(arg date)/cam.yaml"/>
+  <arg name="bag_image" default="$(arg date)/kalibr.mat"/>
+  <arg name="bag_imu" default="$(arg date)/recorded_imu.bag"/>
+  
+  <node pkg="kalibr" type="kalibr_calibrate_imu_camera" name="kalibr_imu_camera_calibration" 
+        output="screen"  args="--target $(find kalibr)/../../../../$(arg target) 
+                              --imu $(find kalibr)/../../../../$(arg imu_params) 
+                              --imu-models $(arg imu_models) 
+                              --cam $(find kalibr)/../../../../$(arg cam_chain) 
+                              --bag_image $(find kalibr)/../../../../$(arg bag_image)
+                              --bag_imu $(find kalibr)/../../../../$(arg bag_imu) 
+                              --timeoffset-padding 1"/>
+</launch>
+

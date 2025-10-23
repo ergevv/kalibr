@@ -16,6 +16,8 @@ import math
 import numpy as np
 import pylab as pl
 import scipy.optimize
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Cursor
 
 
 def initCameraBagDataset(bagfile, topic, from_to, freq, perform_synchronization):
@@ -136,7 +138,7 @@ class IccCamera():
         problem.addDesignVariable(gyroBiasDv)
         
         #initialize a pose spline using the camera poses
-        poseSpline = self.initPoseSplineFromCamera( timeOffsetPadding=0.0 )  #将相机位置转到世界坐标后？ 再进行b样条拟合
+        poseSpline = self.initPoseSplineFromCamera( timeOffsetPadding=0.0 )  #标定板坐标下，image时刻，base坐标（imu）的位姿。 再进行b样条拟合
         
         for im in imu.imuData:
             tk = im.stamp.toSec()
@@ -146,7 +148,7 @@ class IccCamera():
                 bias = gyroBiasDv.toExpression()   
                 
                 #get the vision predicted omega and measured omega (IMU)
-                omega_predicted = R_i_c * aopt.EuclideanExpression( np.matrix( poseSpline.angularVelocityBodyFrame( tk ) ).transpose() )  #imu坐标下的角速度
+                omega_predicted = R_i_c * aopt.EuclideanExpression( np.matrix( poseSpline.angularVelocityBodyFrame( tk ) ).transpose() )  #imu坐标下的角速度，R_i_c可能是R_c_i，写错了？R_c_i * t坐标系下imu的角速度得到t坐标系下相机的角速度？还是很奇怪，跟下面得不符合
                 omega_measured = im.omega
                 
                 #error term
@@ -181,16 +183,16 @@ class IccCamera():
 
         #overwrite the external rotation prior (keep the external translation prior)
         R_i_c = q_i_c_Dv.toRotationMatrix().transpose()  # 相机坐标转imu
-        self.T_extrinsic = sm.Transformation( sm.rt2Transform( R_i_c, self.T_extrinsic.t() ) )
+        self.T_extrinsic = sm.Transformation( sm.rt2Transform( R_i_c, self.T_extrinsic.t() ) ) # T_extrinsic记录了imu坐标下image的位姿，这个是根据imu的角速度和image的角速度求出来的姿态，位置还未更新
 
-        #estimate gravity in the world coordinate frame as the mean specific force
+        #estimate gravity in the world coordinate frame as the mean specific force，世界坐标可能就是标定板坐标系
         a_w = []
         for im in imu.imuData:
             tk = im.stamp.toSec()
             if tk > poseSpline.t_min() and tk < poseSpline.t_max():
                 a_w.append(np.dot(poseSpline.orientation(tk), np.dot(R_i_c, - im.alpha)))
         mean_a_w = np.mean(np.asarray(a_w).T, axis=1)
-        self.gravity_w = mean_a_w / np.linalg.norm(mean_a_w) * 9.80655
+        self.gravity_w = mean_a_w / np.linalg.norm(mean_a_w) * 9.80655 # 因为标定板是y轴向下，所以重力的主要分量在y轴
         print("Gravity was intialized to", self.gravity_w, "[m/s^2]") 
 
         #set the gyro bias prior (if we have more than 1 cameras use recursive average)
@@ -227,10 +229,13 @@ class IccCamera():
         t=[]
         omega_measured_norm = []
         omega_predicted_norm = []
-        
+        num = 0
+        num2 = 0
         for im in imu.imuData:
             tk = im.stamp.toSec()
             if tk > poseSpline.t_min() and tk < poseSpline.t_max():
+                # print("tk:", tk)
+                num+=1
                 
                 #get imu measurements and spline from camera
                 omega_measured = im.omega
@@ -240,7 +245,11 @@ class IccCamera():
                 t = np.hstack( (t, tk) )
                 omega_measured_norm = np.hstack( (omega_measured_norm, np.linalg.norm( omega_measured ) ))
                 omega_predicted_norm = np.hstack( (omega_predicted_norm, np.linalg.norm( omega_predicted.toEuclidean() )) )
-        
+            else:
+                # print("tk:", tk)
+                num2+=1
+                # print("num2:", num2)
+        print("available num:", num)
         if len(omega_predicted_norm) == 0 or len(omega_measured_norm) == 0:
             sm.logFatal("The time ranges of the camera and IMU do not overlap. "\
                         "Please make sure that your sensors are synchronized correctly.")
@@ -249,12 +258,71 @@ class IccCamera():
         #get the time shift
         corr = np.correlate(omega_predicted_norm, omega_measured_norm, "full")
         discrete_shift = corr.argmax() - (np.size(omega_measured_norm) - 1)
+
+
+
         
         #get cont. time shift
         times = [im.stamp.toSec() for im in imu.imuData]
         dT = np.mean(np.diff( times ))
         shift = -discrete_shift*dT
-        
+
+
+
+        # 绘制对比图
+        fig, ax = plt.subplots(figsize=(10, 6))
+        line1, = ax.plot(t, omega_measured_norm, label="measured_raw")
+        line2, = ax.plot(t, omega_predicted_norm, label="predicted")
+        ax.set_title('Comparison of Predicted and Measured Angular Rates')
+        ax.set_xlabel('Time [s]')
+        ax.set_ylabel('Angular Rate Norm [rad/s]')
+        ax.legend(loc='upper right')
+        ax.grid(True)
+
+        # 添加文本显示框
+        text = ax.text(0.02, 0.98, '', transform=ax.transAxes, verticalalignment='top',
+                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+        def on_move(event):
+            if event.inaxes == ax:
+                # 找到最近的点
+                if len(t) > 0 and event.xdata is not None:
+                    # 计算距离鼠标位置最近的点
+                    distances = np.abs(t - event.xdata)
+                    idx = np.argmin(distances)
+                    if idx < len(omega_measured_norm):
+                        pred_val = omega_predicted_norm[idx]
+                        meas_val = omega_measured_norm[idx]
+                        time_val = t[idx]
+                        text.set_text(f'Time: {time_val:.6f}\nPredicted: {pred_val:.4f}\nMeasured: {meas_val:.4f}')
+                        fig.canvas.draw_idle()
+
+        # 连接事件
+        fig.canvas.mpl_connect('motion_notify_event', on_move)
+
+        # 添加光标
+        cursor = Cursor(ax, useblit=True, color='red', linewidth=1)
+        plt.show()
+        plt.pause(2)  # 暂停5秒钟确保窗口显示
+
+
+        # # 绘制对比图
+        # plt.figure(figsize=(10, 6))
+        # plt.plot(t, omega_measured_norm, label="measured_raw")
+        # plt.plot(t, omega_predicted_norm, label="predicted")
+        # # plt.plot(t-shift, omega_measured_norm,label="measured_corrected")
+        # plt.title('Comparison of Predicted and Measured Angular Rates')
+        # plt.xlabel('Sample Index')
+        # plt.ylabel('Angular Rate Norm [rad/s]')
+        # plt.legend()
+        # plt.grid(True)
+
+        # # 添加光标交互
+        # cursor = Cursor(plt.gca(), useblit=True, color='red', linewidth=1)
+        # # plt.show(block=False)  # 非阻塞显示
+        # plt.show()
+        # plt.pause(2)  # 暂停5秒钟确保窗口显示
+
         #Create plots
         if verbose:
             pl.plot(t, omega_measured_norm, label="measured_raw")
@@ -272,18 +340,19 @@ class IccCamera():
         
         #store the timeshift (t_imu = t_cam + timeshiftCamToImuPrior)
         self.timeshiftCamToImuPrior = shift
+        # self.timeshiftCamToImuPrior = 0
         
         print("  Time shift camera to imu (t_imu = t_cam + shift):")
         print(self.timeshiftCamToImuPrior)
         
     #initialize a pose spline using camera poses (pose spline = T_wb)
     def initPoseSplineFromCamera(self, splineOrder=6, poseKnotsPerSecond=100, timeOffsetPadding=0.02):
-        T_c_b = self.T_extrinsic.T()        
+        T_c_b = self.T_extrinsic.T()        # base跟imu坐标一致
         pose = bsplines.BSplinePose(splineOrder, sm.RotationVector() )
                 
         # Get the checkerboard times.
         times = np.array([obs.time().toSec()+self.timeshiftCamToImuPrior for obs in self.targetObservations ])                 
-        curve = np.matrix([ pose.transformationToCurveValue( np.dot(obs.T_t_c().T(), T_c_b) ) for obs in self.targetObservations]).T #使用平移和欧拉角代替矩阵
+        curve = np.matrix([ pose.transformationToCurveValue( np.dot(obs.T_t_c().T(), T_c_b) ) for obs in self.targetObservations]).T #使用平移和欧拉角代替矩阵，T_t_c为相机转到标定板，T_c_b为基座转到相机（imu转到相机，一开始为幺元），.T()是指获取其变换矩阵形式，不是矩阵的转置，也不是矩阵的逆，标定板坐标下，image时刻，base坐标（imu）的位姿
         
         if np.isnan(curve).any():
             raise RuntimeError("Nans in curve values")

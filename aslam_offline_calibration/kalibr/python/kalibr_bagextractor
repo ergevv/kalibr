@@ -63,7 +63,10 @@ if parsed.image_topics is not None:
         params = list()
         params.append(png_flag)
         params.append(0) #0: loss-less  
-        filename = "{0}{1:09d}.png".format(timestamp.secs, timestamp.nsecs)
+        # filename = "{0}{1:09d}.png".format(timestamp.secs, timestamp.nsecs)
+        # 将原来的9位数字改为只取前6位
+        filename = "{0}{1:06d}.png".format(timestamp.secs, timestamp.nsecs // 1000)
+
         cv2.imwrite( "{0}/cam{1}/{2}".format(parsed.output_folder, cidx, filename), image, params )
         
         iProgress.sample()

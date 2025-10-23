@@ -102,22 +102,22 @@ class IccCalibrator(object):
         self.noTimeCalibration = noTimeCalibration
         if not noTimeCalibration:
             for cam in self.CameraChain.camList:
-                cam.findTimeshiftCameraImuPrior(self.ImuList[0], verbose)  #根据角速度对齐时间
+                cam.findTimeshiftCameraImuPrior(self.ImuList[0], verbose)  #根据角速度的模对齐时间
         
         #obtain orientation prior between main imu and camera chain (if no external input provided)
         #and initial estimate for the direction of gravity
-        self.CameraChain.findOrientationPriorCameraChainToImu(self.ImuList[0])
+        self.CameraChain.findOrientationPriorCameraChainToImu(self.ImuList[0])  #根据imu的角速度和图像角速度获得imu和相机之间的旋转关系和陀螺仪零偏
         estimatedGravity = self.CameraChain.getEstimatedGravity()
 
         ############################################
         ## init optimization problem
         ############################################
         #initialize a pose spline using the camera poses in the camera chain
-        poseSpline = self.CameraChain.initializePoseSplineFromCameraChain(splineOrder, poseKnotsPerSecond, timeOffsetPadding)  #b样条插值位姿
+        poseSpline = self.CameraChain.initializePoseSplineFromCameraChain(splineOrder, poseKnotsPerSecond, timeOffsetPadding)  #b样条插值位姿，旋转关系已经大致确认了，得到优化后的，标定板下imu的位姿关系
         
         # Initialize bias splines for all IMUs
         for imu in self.ImuList:
-            imu.initBiasSplines(poseSpline, splineOrder, biasKnotsPerSecond)
+            imu.initBiasSplines(poseSpline, splineOrder, biasKnotsPerSecond)  # 插值bias，加速度计直接全部取0，角速度取之前优化得到的
         
         # Now I can build the problem
         problem = inc.CalibrationOptimizationProblem()
