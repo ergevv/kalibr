@@ -68,7 +68,7 @@ class IccCamera():
         self.targetObservations = kc.extractCornersFromDataset(self.dataset, self.detector, multithreading=multithreading)
         
         #an estimate of the gravity in the world coordinate frame  
-        self.gravity_w = np.array([9.80655, 0., 0.])
+        self.gravity_w = np.array([9.80665, 0., 0.]) #重力
         
     def setupCalibrationTarget(self, targetConfig, showExtraction=False, showReproj=False, imageStepping=False):
         
@@ -192,7 +192,7 @@ class IccCamera():
             if tk > poseSpline.t_min() and tk < poseSpline.t_max():
                 a_w.append(np.dot(poseSpline.orientation(tk), np.dot(R_i_c, - im.alpha)))
         mean_a_w = np.mean(np.asarray(a_w).T, axis=1)
-        self.gravity_w = mean_a_w / np.linalg.norm(mean_a_w) * 9.80655 # 因为标定板是y轴向下，所以重力的主要分量在y轴
+        self.gravity_w = mean_a_w / np.linalg.norm(mean_a_w) * 9.80665 # 因为标定板是y轴向下，所以重力的主要分量在y轴
         print("Gravity was intialized to", self.gravity_w, "[m/s^2]") 
 
         #set the gyro bias prior (if we have more than 1 cameras use recursive average)
@@ -269,41 +269,41 @@ class IccCamera():
 
 
 
-        # 绘制对比图
-        fig, ax = plt.subplots(figsize=(10, 6))
-        line1, = ax.plot(t, omega_measured_norm, label="measured_raw")
-        line2, = ax.plot(t, omega_predicted_norm, label="predicted")
-        ax.set_title('Comparison of Predicted and Measured Angular Rates')
-        ax.set_xlabel('Time [s]')
-        ax.set_ylabel('Angular Rate Norm [rad/s]')
-        ax.legend(loc='upper right')
-        ax.grid(True)
+        # # 绘制对比图
+        # fig, ax = plt.subplots(figsize=(10, 6))
+        # line1, = ax.plot(t, omega_measured_norm, label="measured_raw")
+        # line2, = ax.plot(t, omega_predicted_norm, label="predicted")
+        # ax.set_title('Comparison of Predicted and Measured Angular Rates')
+        # ax.set_xlabel('Time [s]')
+        # ax.set_ylabel('Angular Rate Norm [rad/s]')
+        # ax.legend(loc='upper right')
+        # ax.grid(True)
 
-        # 添加文本显示框
-        text = ax.text(0.02, 0.98, '', transform=ax.transAxes, verticalalignment='top',
-                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+        # # 添加文本显示框
+        # text = ax.text(0.02, 0.98, '', transform=ax.transAxes, verticalalignment='top',
+        #             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
-        def on_move(event):
-            if event.inaxes == ax:
-                # 找到最近的点
-                if len(t) > 0 and event.xdata is not None:
-                    # 计算距离鼠标位置最近的点
-                    distances = np.abs(t - event.xdata)
-                    idx = np.argmin(distances)
-                    if idx < len(omega_measured_norm):
-                        pred_val = omega_predicted_norm[idx]
-                        meas_val = omega_measured_norm[idx]
-                        time_val = t[idx]
-                        text.set_text(f'Time: {time_val:.6f}\nPredicted: {pred_val:.4f}\nMeasured: {meas_val:.4f}')
-                        fig.canvas.draw_idle()
+        # def on_move(event):
+        #     if event.inaxes == ax:
+        #         # 找到最近的点
+        #         if len(t) > 0 and event.xdata is not None:
+        #             # 计算距离鼠标位置最近的点
+        #             distances = np.abs(t - event.xdata)
+        #             idx = np.argmin(distances)
+        #             if idx < len(omega_measured_norm):
+        #                 pred_val = omega_predicted_norm[idx]
+        #                 meas_val = omega_measured_norm[idx]
+        #                 time_val = t[idx]
+        #                 text.set_text(f'Time: {time_val:.6f}\nPredicted: {pred_val:.4f}\nMeasured: {meas_val:.4f}')
+        #                 fig.canvas.draw_idle()
 
-        # 连接事件
-        fig.canvas.mpl_connect('motion_notify_event', on_move)
+        # # 连接事件
+        # fig.canvas.mpl_connect('motion_notify_event', on_move)
 
-        # 添加光标
-        cursor = Cursor(ax, useblit=True, color='red', linewidth=1)
-        plt.show()
-        plt.pause(2)  # 暂停5秒钟确保窗口显示
+        # # 添加光标
+        # cursor = Cursor(ax, useblit=True, color='red', linewidth=1)
+        # plt.show()
+        # plt.pause(2)  # 暂停5秒钟确保窗口显示
 
 
         # # 绘制对比图

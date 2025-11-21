@@ -3,13 +3,22 @@
 
 <launch>
   <!-- 定义参数 -->
-  <arg name="date" default="20251014"/>
+  <!-- calibrated仅标定零偏， scale-misalignment标定比例因子， scale-misalignment-size-effect尺度效应，例如震动导致的陀螺仪误差， 高速导致科氏力影响到加速度计  -->
+  <arg name="date" default="20251120"/>
+  <arg name="target" default="asymmetricGrid.yaml"/>
+  <arg name="imu_params" default="imu.yaml"/>
+  <arg name="imu_models" default="scale-misalignment"/>
+  <arg name="cam_chain" default="$(arg date)/cam.yaml"/>
+  <arg name="bag_image" default="$(arg date)/kalibr.mat"/>
+  <arg name="bag_imu" default="$(arg date)/data.bag"/>
+
+  <!-- <arg name="date" default="20251028"/>
   <arg name="target" default="asymmetricGrid.yaml"/>
   <arg name="imu_params" default="imu.yaml"/>
   <arg name="imu_models" default="calibrated"/>
   <arg name="cam_chain" default="$(arg date)/cam.yaml"/>
   <arg name="bag_image" default="$(arg date)/kalibr.mat"/>
-  <arg name="bag_imu" default="$(arg date)/recorded_imu.bag"/>
+  <arg name="bag_imu" default="$(arg date)/recorded_imu.bag"/> -->
   
 
   <!-- 运行kalibr_calibrate_imu_camera命令 指定python版本：launch-prefix="/usr/bin/python3.8" -->
@@ -20,5 +29,5 @@
                               --cam $(find kalibr)/../../../../asymm_4_9/$(arg cam_chain) 
                               --bag_image $(find kalibr)/../../../../asymm_4_9/$(arg bag_image)
                               --bag_imu $(find kalibr)/../../../../asymm_4_9/$(arg bag_imu) 
-                              --timeoffset-padding 0.2"/>
+                              --timeoffset-padding 0.05"/>
 </launch>

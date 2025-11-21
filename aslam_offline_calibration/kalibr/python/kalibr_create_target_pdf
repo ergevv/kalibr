@@ -41,13 +41,13 @@ def generateAprilTag(canvas, position, metricSize, tagSpacing, tagID, tagFamilil
 
     #calculate the bit size of the tag
     sqrtBits = (math.sqrt(tagFamililyData.totalBits))
-    bitSquareSize = metricSize / (sqrtBits+borderBits*2)
+    bitSquareSize = metricSize / (sqrtBits+borderBits*2)  #单位cm
     
     #position of tag
     xPos = position[0]
     yPos = position[1]
     
-    #borders (2x bit size)
+    #borders (2x bit size) ，绘制边缘，大小占两个
     borderSize = borderBits*bitSquareSize
 
     c.fill(path.rect(xPos, yPos, metricSize, borderSize),[color.rgb.black]) #bottom
@@ -161,6 +161,8 @@ if __name__ == "__main__":
         kalibr_create_target_pdf --type apriltag --nx 6 --ny 6 --tsize 0.08 --tspace 0.3
     Example Checkerboard:
         kalibr_create_target_pdf --type checkerboard --nx 6 --ny 6 -csx 0.05 --csy 0.1
+    rosrun kalibr kalibr_create_target_pdf --type apriltag --nx 6 --ny 6 --tsize 0.025 --tspace 0.3
+    rosrun kalibr kalibr_create_target_pdf --type apriltag --nx 6 --ny 6 --tsize 0.04 --tspace 0.3
     """
     
     #setup the argument list
@@ -171,12 +173,12 @@ if __name__ == "__main__":
     outputOptions.add_argument('--eps', action='store_true', dest='do_eps', help='Also output an EPS file', required=False)
     
     genericOptions = parser.add_argument_group('Generic grid options')    
-    genericOptions.add_argument('--type', dest='gridType', help='The grid pattern type. (\'apriltag\' or \'checkerboard\')')
+    genericOptions.add_argument('--type',type=str, default="apriltag", dest='gridType', help='The grid pattern type. (\'apriltag\' or \'checkerboard\')')
     genericOptions.add_argument('--nx', type=int, default=6, dest='n_cols', help='The number of tags in x direction (default: %(default)s)\n')
-    genericOptions.add_argument('--ny', type=int, default=7, dest='n_rows', help='The number of tags in y direction (default: %(default)s)')
+    genericOptions.add_argument('--ny', type=int, default=6, dest='n_rows', help='The number of tags in y direction (default: %(default)s)')
 
     aprilOptions = parser.add_argument_group('Apriltag arguments')    
-    aprilOptions.add_argument('--tsize', type=float, default=0.08, dest='tsize', help='The size of one tag [m] (default: %(default)s)')
+    aprilOptions.add_argument('--tsize', type=float, default=0.04, dest='tsize', help='The size of one tag [m] (default: %(default)s)')
     aprilOptions.add_argument('--tspace', type=float, default=0.3, dest='tagspacing', help='The space between the tags in fraction of the edge size [0..1] (default: %(default)s)')
     aprilOptions.add_argument('--tfam', default='t36h11', dest='tagfamiliy', help='Familiy of April tags {0} (default: %(default)s)'.format(list(AprilTagCodes.TagFamilies.keys()))) 
     aprilOptions.add_argument('--skip-ids', default='', dest='skipIds', help='Space-separated list of tag ids to leave blank (default: none)')
@@ -185,9 +187,9 @@ if __name__ == "__main__":
     checkerOptions.add_argument('--csx', type=float, default=0.05, dest='chessSzX', help='The size of one chessboard square in x direction [m] (default: %(default)s)')
     checkerOptions.add_argument('--csy', type=float, default=0.05, dest='chessSzY', help='The size of one chessboard square in y direction [m] (default: %(default)s)')
 
-    if len(sys.argv)==1:
-        parser.print_help()
-        sys.exit(0)
+    # if len(sys.argv)==1:
+    #     parser.print_help()
+    #     sys.exit(0)
         
     #Parser the argument list
     try:
