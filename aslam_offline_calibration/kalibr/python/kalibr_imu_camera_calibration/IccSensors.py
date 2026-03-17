@@ -69,6 +69,7 @@ class IccCamera():
         
         #an estimate of the gravity in the world coordinate frame  
         self.gravity_w = np.array([9.80665, 0., 0.]) #重力
+        # self.gravity_w = np.array([9.7887, 0., 0.])
         
     def setupCalibrationTarget(self, targetConfig, showExtraction=False, showReproj=False, imageStepping=False):
         
@@ -193,6 +194,7 @@ class IccCamera():
                 a_w.append(np.dot(poseSpline.orientation(tk), np.dot(R_i_c, - im.alpha)))
         mean_a_w = np.mean(np.asarray(a_w).T, axis=1)
         self.gravity_w = mean_a_w / np.linalg.norm(mean_a_w) * 9.80665 # 因为标定板是y轴向下，所以重力的主要分量在y轴
+        # self.gravity_w = mean_a_w / np.linalg.norm(mean_a_w) * 9.7887 #深圳
         print("Gravity was intialized to", self.gravity_w, "[m/s^2]") 
 
         #set the gyro bias prior (if we have more than 1 cameras use recursive average)
